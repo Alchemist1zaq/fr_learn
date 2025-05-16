@@ -1,0 +1,183 @@
+
+#pragma once
+
+#include <map>
+#include <vector>
+
+#include "global.hpp"
+
+#include "funcs.hpp"
+#include "geo.hpp"
+#include "input.hpp"
+#include "matrix.hpp"
+#include "points.hpp"
+
+class oper {
+public:
+  //! Overall setup function for one element type & polynomial order
+  void setupOperators(uint eType, uint order, geo *inGeo, input *inParams);
+
+  //! Setup operator for extrapolation from solution points to flux points
+  void setupExtrapolateSptsFpts(void);
+
+  //! Setup operator for extrapolation from solution points to all plotting
+  //! points
+  void setupExtrapolateSptsPpts(void);
+
+  //! Setup operator for extrapolation from solution points to mesh (corner)
+  //! points
+  void setupExtrapolateSptsMpts(void);
+
+  void setupInterpolateSptsQpts(int quadOrder);
+
+  //! Setup operator for calculation of gradient at the solution points
+  void setupGradSpts(void);
+
+  /*! Setup operator for gradient at nSpts tensor-product points
+   *  basisType: Which set of basis points to define Lagrange basis at
+   *  ptsType: Which set of points to evaluate basis derivative at
+   */
+  void setupGradPts(vector<matrix<double>> &opp_grad, string basisType,
+                    int basisOrder, string ptsType, int ptsOrder);
+  void setupGradPts(vector<matrix<double>> &opp_grad, string basisType,
+                    int basisOrder, vector<point> loc_pts);
+
+  /*! Setup operator to calculate divergence of correction function at solution
+   * points based upon the normal flux correction at the flux points */
+  void setupCorrection(void);
+
+  //! Setup an interpolation operation between solution points and given points
+  //! using solution basis
+  matrix<double> setupInterpolateSptsIpts(matrix<double> &loc_ipts);
+
+  //! Interpolate a scalar field at the solution points of an element to given
+  //! interpolation points
+  void interpolateSptsToPoints(vector<double> &Q_spts, vector<double> &Q_ipts,
+                               matrix<double> &loc_ipts);
+
+  //! Interpolate a set of values at the solution points of an element to given
+  //! interpolation points
+  void interpolateSptsToPoints(matrix<double> &Q_spts, matrix<double> &Q_ipts,
+                               matrix<double> &loc_ipts);
+
+  //! Interpolate values at the solution points of an element at the given
+  //! reference location
+  void interpolateToPoint(matrix<double> &Q_spts, double *Q_ipts,
+                          point &loc_ipt);
+
+  //! Interpolate a flux vector (nDims x nFields) to the given reference
+  //! location
+  void interpolateFluxToPoint(vector<matrix<double>> &F_spts,
+                              matrix<double> &F_ipt, point &loc_ipt);
+
+  //! Get interpolation weights at given point
+  void getBasisValues(point &ipt, vector<double> &weights);
+  void getBasisValues(double *loc_ipt, double *weights);
+
+  void setupCorrectGradU(void);
+
+  void applyGradSpts(matrix<double> &U_spts, vector<matrix<double>> &dU_spts);
+
+  void applyGradFSpts(vector<matrix<double>> &F_spts,
+                      Array<matrix<double>, 2> &dF_spts);
+
+  void applyDivFSpts(vector<matrix<double>> &F_spts, matrix<double> &divF_spts);
+
+  void applySptsFpts(matrix<double> &U_spts, matrix<double> &U_fpts);
+
+  void applySptsMpts(matrix<double> &U_spts, matrix<double> &U_mpts);
+
+  /*! For the standard FR method: extrapolate the transformed flux to the flux
+   * points and dot with the transformed outward unit normal */
+  void applyExtrapolateFn(Array<double, 3> &F_spts, matrix<double> &Fn_fpts);
+
+  /*! For the modified space-time transformation method: Extrapolate the
+   * physical flux to the flux points and dott with the physical outward unit
+   * normal */
+  void applyExtrapolateFn(Array<double, 3> &F_spts, matrix<double> &norm_fpts,
+                          matrix<double> &Fn_fpts, vector<double> &dA_fpts);
+
+  void applyCorrectDivF(matrix<double> &dFn_fpts, matrix<double> &divF_spts);
+
+  void applyCorrectGradU(matrix<double> &dUc_fpts,
+                         vector<matrix<double>> &dU_spts,
+                         vector<matrix<double>> &JGinv_spts,
+                         vector<double> &detJac_spts);
+
+  /*! Shock Capturing in the element */
+  double shockCaptureInEle(matrix<double> &U_spts, double threshold);
+
+  const matrix<double> &get_oper_div_spts();
+  const matrix<double> &get_oper_spts_fpts();
+
+  map<int, matrix<double> *> get_oper_grad_spts;
+  map<int, matrix<double> *> get_oper_correct;
+
+  //! Calculate average density over an element (needed for negative-density
+  //! correction)
+  void calcAvgU(matrix<double> &U_spts, vector<double> &detJ_spts,
+                vector<double> &Uavg);
+
+  matrix<double> interpolateCorrectedFlux(Array<double, 3> &F_spts,
+                                          matrix<double> &dFn_fpts,
+                                          point refLoc);
+
+  matrix<double> opp_prolong;  //! PMG Prolongation operator
+  matrix<double> opp_restrict; //! PMG Restriction operator
+
+  geo *Geo;
+  input *params;
+  uint nDims, nFields, eType, order, nSpts, nFpts, nPpts;
+  string sptsType;
+
+  vector<point> loc_spts, loc_fpts, loc_ppts, loc_qpts, loc_cpts;
+
+  matrix<double> opp_spts_to_fpts;
+  matrix<double> opp_spts_to_mpts;
+  matrix<double> opp_spts_to_ppts;
+  matrix<double> opp_spts_to_qpts;
+  vector<matrix<double>> opp_grad_spts;
+  vector<matrix<double>> gradCpts_cpts, gradCpts_spts,
+      gradCpts_fpts; //! Consistent grid points
+  matrix<double> opp_div_spts;
+  vector<matrix<double>> opp_extrapolateFn;
+  matrix<double> opp_correction;
+  vector<matrix<double>> opp_correctU;
+  vector<matrix<double>> opp_correctF;
+
+private:
+  //! Flux at solution points to normal flux at fpts [Reference space]
+  void setupExtrapolateFn(void);
+
+  matrix<double> tempFn;
+
+  void setupCorrectF(void);
+
+  //! Evalulate the VCJH correction function at a solution point from a flux
+  //! point */
+  double VCJH_quad(uint fpt, point &loc, vector<double> &spts1D, uint vcjh,
+                   uint order);
+  double VCJH_hex(int fpt, point &loc, vector<double> &spts1D, uint vcjh,
+                  uint order);
+
+  /*! Evaluate the divergence of the (VCJH) correction function at a solution
+   * point from a flux point */
+  double divVCJH_quad(int in_fpt, point &loc, vector<double> &loc_1d_spts,
+                      uint vcjh, uint order);
+  double divVCJH_hex(int in_fpt, point &loc, vector<double> &loc_1d_spts,
+                     uint vcjh, uint order);
+
+  /* Stuff required for Shock Capturing */
+  matrix<double> vandermonde1D;
+  matrix<double> inv_vandermonde1D;
+  matrix<double> vandermonde2D;
+  matrix<double> inv_vandermonde2D;
+  matrix<double> sensingMatrix;
+  matrix<double> filterMatrix;
+  void setupVandermonde(void);
+  void setupSensingMatrix(void);
+  void setupFilterMatrix(void);
+
+  /* P-Multigrid */
+  void setupPMG(int my_order);
+};
